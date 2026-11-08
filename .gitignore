@@ -1,5 +1,12 @@
 .python-version
 /uv.lock
-/__pycache__
-/.venv
+__pycache__/
+*.pyc
+.venv/
+
+# Certificados locais (não versionar chaves ou certificados do servidor)
+certs/*.crt
+certs/*.pem
+certs/*.key
 certs/server.crt
+!certs/.gitkeep
