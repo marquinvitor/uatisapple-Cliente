@@ -1,5 +1,5 @@
 .python-version
 /uv.lock
-/pyproject.toml
 /__pycache__
 /.venv
+certs/server.crt
