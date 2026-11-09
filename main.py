@@ -55,13 +55,13 @@ def main():
         salt_srv=salt_srv,
         assinatura=assinatura
     )
-    print("[+] RC03: Servidor autenticado com sucesso via RSA-PSS e Pinning[cite: 16]!")
+    print("[+] RC03: Servidor autenticado com sucesso via RSA-PSS e Pinning!")
 
     priv_peer_falso, pk_peer_falso = gerar_chaves_efemeras()
     peer_id_bytes = uuid.uuid4().bytes
     
     key_a2b, key_b2a = calcular_segredo_e_derivar_chaves(priv_client, pk_peer_falso, salt_srv)
-    print("[+] RC04: Chaves E2E derivadas com sucesso via HKDF-SHA256[cite: 9, 10, 16]!")
+    print("[+] RC04: Chaves E2E derivadas com sucesso via HKDF-SHA256!")
 
     peers = {
         peer_id_bytes: {
@@ -87,7 +87,7 @@ def main():
         peer_id_bytes,
         mensagem
     )
-    print(f"[+] RC05: Mensagem cifrada com AES-128-GCM e frame E2E gerado ({len(frame_e2e)} bytes)[cite: 8, 11, 17].")
+    print(f"[+] RC05: Mensagem cifrada com AES-128-GCM e frame E2E gerado ({len(frame_e2e)} bytes).")
 
     print("[*] Simulando recepção do frame pelo destinatário...")
     
@@ -99,7 +99,7 @@ def main():
     )
     peer_session["seq_recv"] = seq_no 
     
-    print(f"[+] RC06/RC07/RC08: Mensagem decifrada com sucesso: '{plaintext.decode('utf-8')}'[cite: 17, 18]")
+    print(f"[+] RC06/RC07/RC08: Mensagem decifrada com sucesso: '{plaintext.decode('utf-8')}'")
 
     #TESTE DE ADULTERAÇÃO
     print("\n[*] Executando teste obrigatório: Adulteração de payload (Bitflip)...")
@@ -109,14 +109,14 @@ def main():
     try:
         decifrar_mensagem_e2e(peer_session["key_send"], bytes(frame_adulterado), peer_session["seq_recv"])
     except ValueError as e:
-        print(f"[+] SUCESSO NO TESTE DE TAMPERING: {e}[cite: 18]")
+        print(f"[+] SUCESSO NO TESTE DE TAMPERING: {e}")
 
     #TESTE DE REPLAY
     print("\n[*] Executando teste obrigatório: Ataque Replay (Reenvio do mesmo seq_no)...")
     try:
         decifrar_mensagem_e2e(peer_session["key_send"], frame_e2e, peer_session["seq_recv"])
     except ValueError as e:
-        print(f"[+] SUCESSO NO TESTE DE REPLAY: {e}[cite: 18]")
+        print(f"[+] SUCESSO NO TESTE DE REPLAY: {e}")
 
     sock.close()
 
