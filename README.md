@@ -178,34 +178,84 @@ python3 main.py
 
 ### Exemplo de Saída Esperada
 ```text
-[*] Iniciando cliente com ID (UUID v4): a1b2c3d4-e5f6-7890-abcd-ef1234567890
-[+] RC01: Chaves efêmeras X25519 geradas localmente.
-[+] RC02: Conectado ao servidor em 127.0.0.1:6767
-[+] RC02: Frame CLIENT_HELLO enviado com sucesso.
+======================================================================
+       UATISAPPLE: TESTE INTEGRADO E2E COM DOIS CLIENTES E SEGURANÇA       
+======================================================================
+[+] Servidor Relay já está em execução em 127.0.0.1:6767.
+
+======================================================================
+ETAPA 1: Conexão e Handshake com Dois Clientes Reais (Alice e Bob)
+======================================================================
+[*] [Alice] Conectando ao servidor em 127.0.0.1:6767...
+[+] [Alice] CLIENT_HELLO enviado com sucesso.
 [+] Assinatura RSA-PSS do servidor verificada com sucesso!
-[+] RC03: Servidor autenticado com sucesso via RSA-PSS e Pinning!
-[+] RC04: Segredo Z_AB calculado e chaves simetricas E2E derivadas com sucesso via HKDF!
-[+] RC04: Chaves E2E derivadas com sucesso via HKDF-SHA256!
-[+] RC05: Mensagem cifrada com AES-128-GCM e frame E2E gerado (105 bytes).
-[*] Simulando recepção do frame pelo destinatário...
-[+] RC06/RC07/RC08: Mensagem decifrada com sucesso: 'Mensagem secreta validada ponta a ponta!'
+[+] [Alice] Servidor autenticado via Certificate Pinning e RSA-PSS!
+[+] [Alice] Sessão registrada no servidor com sucesso.
+[*] [Bob] Conectando ao servidor em 127.0.0.1:6767...
+[+] [Bob] CLIENT_HELLO enviado com sucesso.
+[+] Assinatura RSA-PSS do servidor verificada com sucesso!
+[+] [Bob] Servidor autenticado via Certificate Pinning e RSA-PSS!
+[+] [Bob] Sessão registrada no servidor com sucesso.
+[+] [Bob] Peer configurado! Chaves E2E derivadas com pair_salt.
+[+] [Alice] Peer configurado! Chaves E2E derivadas com pair_salt.
 
-[*] Executando teste obrigatório: Adulteração de payload (Bitflip)...
-[+] SUCESSO NO TESTE DE TAMPERING: [-] REJECTED: Falha na Tag GCM! Mensagem adulterada ou corrompida na rede (Anti-Tampering).
+======================================================================
+ETAPA 2: Troca de Mensagens E2E com Sucesso (Alice <-> Bob)
+======================================================================
+[*] [Alice] Enviando mensagem E2E para Bob...
+[+] [Bob] SUCESSO! Mensagem decifrada: 'Ola Bob! Mensagem ultrassecreta cifrada com AES-128-GCM.'
+[*] [Bob] Enviando resposta E2E para Alice...
+[+] [Alice] SUCESSO! Resposta decifrada: 'Ola Alice! Mensagem recebida e decifrada perfeitamente de ponta a ponta.'
 
-[*] Executando teste obrigatório: Ataque Replay (Reenvio do mesmo seq_no)...
-[+] SUCESSO NO TESTE DE REPLAY: [-] REJECTED: Ataque Replay detectado! seq_no 1 menor ou igual ao último visto (1).
+======================================================================
+ETAPA 3: Teste de Integridade - Adulteração de Mensagem (Bitflip no Tráfego)
+======================================================================
+[*] [Atacante] Bitflip realizado no último byte da Tag de autenticação GCM.
+[*] [Alice] Injetando frame adulterado na rede em direção ao relay...
+[*] [Bob] Recebendo frame adulterado da rede e tentando decifrar...
+[+] SUCESSO NO TESTE ANTI-TAMPERING: Destinatário rejeitou mensagem adulterada!
+    Detalhe: [-] REJECTED: Falha na Tag GCM! Mensagem adulterada ou corrompida no tráfego (Anti-Tampering).
+
+======================================================================
+ETAPA 4: Teste de Ataque Replay - Envio de Frame com seq_no já Usado
+======================================================================
+[*] Tentando retransmitir frame anterior que possuía seq_no já utilizado...
+[+] SUCESSO NO TESTE DE REPLAY (Servidor): Relay rejeitou replay com código ERROR 5 (REPLAY=0x05)!
+[+] SUCESSO NO TESTE DE REPLAY (Destinatário): Destinatário rejeitou seq_no repetido!
+    Detalhe: [-] REJECTED: Ataque Replay detectado! seq_no 1 menor ou igual ao último visto (1).
+
+======================================================================
+ETAPA 5: Teste de Framing Inválido (Tamanho Incorreto) e Desconexão Segura
+======================================================================
+[*] Limite max_client_frame_size configurado: 4168 bytes.
+[*] [Subteste 5.1] Conectando novo cliente e enviando frame com tamanho anunciado = 0...
+[+] [Servidor] Conexão encerrada pelo servidor imediatamente após framing tamanho 0!
+[+] [Cliente] Desconexão segura executada no socket de teste 5.1.
+[*] [Subteste 5.2] Enviando framing que excede o limite máximo (4668 > 4168)...
+[+] [Servidor] Conexão encerrada pelo servidor devido a tamanho superior a MAX_CLIENT_FRAME_SIZE!
+[+] [Cliente] Desconexão segura executada no socket de teste 5.2.
+[*] [Subteste 5.3] Validando tratamento de framing incorreto no leitor do cliente...
+[+] SUCESSO: FramingError capturado corretamente no leitor.
+[+] Desconexão segura executada no par de sockets local.
 ```
 
 ---
 
 ## 🧪 Testes de Segurança Embutidos
 
-O script `main.py` inclui simulações automáticas de ataques de rede para comprovar as defesas implementadas:
+O script `main.py` orquestra a comunicação entre dois clientes reais e valida os requisitos mandatórios de segurança do sistema:
 
-1. **Teste de Adulteração (Bitflip / Tampering):**
-   - O cliente altera intencionalmente o último byte da Tag de autenticação GCM do frame.
-   - O decifrador rejeita imediatamente o pacote ao detectar a incoerência criptográfica.
-2. **Teste de Replay Attack:**
-   - O mesmo frame válido é submetido uma segunda vez ao decifrador com o mesmo `seq_no`.
-   - O mecanismo de sequência detecta que `seq_no <= seq_recv_atual` e rejeita a mensagem imediatamente.
+1. **Troca de Mensagens E2E (Sucesso):**
+   - Alice e Bob realizam o handshake mútuo com validação de Certificate Pinning e RSA-PSS.
+   - Ambos derivam as chaves simétricas E2E com base no `pair_salt` recebido via canal administrativo cifrado.
+   - Mensagens cifradas com AES-128-GCM são transmitidas através do relay e decifradas com sucesso.
+2. **Teste de Adulteração (Bitflip / Tampering no Tráfego):**
+   - Um bit da tag de autenticação GCM do frame é alterado em trânsito.
+   - O servidor repassa o frame cego ao destinatário.
+   - O decifrador do destinatário rejeita o frame imediatamente devido à falha de integridade da Tag GCM.
+3. **Teste de Replay Attack (seq_no já utilizado):**
+   - Um frame com `seq_no` anterior é retransmitido na rede.
+   - Tanto o servidor relay quanto o destinatário detectam a violação da monotonicidade de `seq_no` e rejeitam o pacote.
+4. **Teste de Framing Inválido (Tamanho Incorreto) e Desconexão Segura:**
+   - Validações contra tamanhos ilegais (comprimento 0 ou superior ao limite `MAX_CLIENT_FRAME_SIZE`).
+   - Servidor e cliente tratam o erro de protocolo e realizam o encerramento seguro (`desconexao_segura`) dos sockets sem travamentos nem vazamentos de recursos.
